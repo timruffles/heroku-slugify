@@ -32,6 +32,10 @@ function exec (command) {
   })
 }
 
+function acquireTarball (source, directory, file) {
+  return file ? Q.when(file) : createSourceTarball(source, directory)
+}
+
 function createSourceTarball (source, directory) {
   return exec(util.format('rm -f %s', source))
   .then(function () {
@@ -40,6 +44,7 @@ function createSourceTarball (source, directory) {
       return Q.nfbind(fs.stat)(source)
     })
   })
+  .then(function() { return source })
 }
 
 function uploadSourceTarball (url, source) {
@@ -76,16 +81,16 @@ function waitForBuild (app, build_id, timeout, interval) {
   })
 }
 
-function slugify (app_id, version, directory, source_file, timeout, interval) {
+function slugify (app_id, version, directory, source_file, timeout, interval, file) {
   var heroku = new Heroku({token: process.env.HEROKU_API_KEY})
   var app = heroku.apps(app_id)
   displayInfo(app_id, version, source_file, timeout, interval)
-  return createSourceTarball(source_file, directory)
-  .then(function () {
+  return acquireTarball(source_file, directory, file)
+  .then(function (path_to_tarball) {
     return app.sources().create()
-  })
-  .then(function (source) {
-    return uploadSourceTarball(source.source_blob.put_url, source_file)
+    .then(function (source) {
+      uploadSourceTarball(source.source_blob.put_url, path_to_tarball)
+    })
     .then(function () {
       return createBuild(app, source.source_blob.get_url, version)
     })
@@ -131,6 +136,12 @@ function main () {
     }
   )
   parser.addArgument(
+    [ '-f', '--file' ],
+    {
+      help: 'Use an existing tarball instead of creating one'
+    }
+  )
+  parser.addArgument(
     [ '-s', '--source' ],
     {
       defaultValue: 'source.tar.gz',
@@ -154,7 +165,7 @@ function main () {
     }
   )
   var args = parser.parseArgs()
-  return slugify(args.app, args.version, args.directory, args.source, args.timeout, args.interval)
+  return slugify(args.app, args.version, args.directory, args.source, args.timeout, args.interval, args.file)
 }
 
 main()
