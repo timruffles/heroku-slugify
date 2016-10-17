@@ -89,10 +89,10 @@ function slugify (app_id, version, directory, source_file, timeout, interval, fi
   .then(function (path_to_tarball) {
     return app.sources().create()
     .then(function (source) {
-      uploadSourceTarball(source.source_blob.put_url, path_to_tarball)
-    })
-    .then(function () {
-      return createBuild(app, source.source_blob.get_url, version)
+      return uploadSourceTarball(source.source_blob.put_url, path_to_tarball)
+      .then(function () {
+        return createBuild(app, source.source_blob.get_url, version)
+      })
     })
     .then(function (build) {
       console.dir(build)
